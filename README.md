@@ -44,6 +44,8 @@ Test Code For C++11 Features & JNI
 1. Get/SetObjectArrayElement
 	The JNI provides a separate pair of functions to access objects arrays. GetObjectArrayElement returns the element at a given index, whereas SetObjectArrayElement updates the element at a given index.
 
+
+
 ### Fields and Methods
 #### Accessing Fields
 	The Java programming language supports two kinds of fields. Each instance of a class has its own copy of the instance fields of the class, whereas all instances of a class share the static fields of the class.
@@ -96,12 +98,38 @@ JNI class descriptors.
 	Comparison between the Two Approaches to Caching IDs:
     1. caching at the point of use requires a check in the execution fast path and may also require duplicated checks and initialization of the same field or method ID.
     2. Method and field IDs are only valid until the class is unloaded.
+6. Performance of JNI Field and Method Operations
+	Java/native calls are potentially slower than Java/Java calls for the following reasons:
+    1. Native methods most likely follow a different calling convention than that used by Java/Java calls inside the Java virtual machine implementation. As a result, the virtual machine must perform additional operations to build arguments and set up the stack frame before jumping to a native method entry point.
+    2. It is common for the virtual machine to inline method calls. Inlining Java/native calls is a lot harder than inlining Java/Java calls.
 
 
+### Local and Global References
+	Different kinds of references in the JNI:
+	1. The JNI supports three kinds of opaque references: local references, global references, and weak global references.
+	2. Local and global references have different lifetimes. Local references are automatically freed, whereas global and weak global references remain valid until they are freed by the programmer.
+	3. A local or global reference keeps the referenced object from being garbage collected. A weak global reference, on the other hand, allows the referenced object to be garbage collected.
+	4. Not all references can be used in all contexts. It is illegal, for example, to use a local reference after the native method that created the reference returns.
+
+#### Local and Global References
+##### Local References
+	Most JNI functions create local references. For example, the JNI function NewObject creates a new instance and returns a local reference to that instance.
+    A local reference is valid only within the dynamic context of the native method that creates it, and only within that one invocation of the native method.All local references created during the execution of a native method will be freed once the native method returns.
+    You must not write native methods that store a local reference in a static variable and expect to use the same reference in subsequent invocations.
+    **FindClass returns a local reference**
+	程序员主动释放 local references(programmers may explicitly manage the lifetime of local references using JNI functions such as DeleteLocalRef)
+    ** Why do you want to delete local references explicitly if the virtual machine automatically frees them after native methods return? ** 目的是以便于GC及时回收本地引用所占的内存，不必等到函数返回后，系统再做回收。
+    ** Local references are also only valid in the thread that creates them. A local reference that is created in one thread cannot be used in another thread. It is a programming error for a native method to store a local reference in a global variable and expect another thread to use the local reference.**
+
+##### Global References
+	You can use a global reference across multiple invocations of a native method. A global reference can be used across multiple threads and remains valid until it is freed by the programmer. Like a local reference, a global reference ensures that the referenced object will not be garbage collected.
+	Unlike local references, which are created by most JNI functions, global references are created by just one JNI function, **NewGlobalRef**.
 
 
-
-
+##### Weak Global References
+	They are created using NewGlobalWeakRef and freed using DeleteGlobalWeakRef. Like global references, weak global references remain valid across native method calls and across different threads. Unlike global references, weak global references do not keep the underlying object from being garbage collected.
+	** java.lang.String is a system class and will never be garbage collected. **
+	Weak global references become more useful when a reference cached by the native code must not keep the underlying object from being garbage collected.
 
 
 
